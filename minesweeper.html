@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>FUN</title>
+	<script src="https://d3js.org/d3.v3.min.js"></script>
+	<script type="text/javascript">
+    var gameBoard = [];
+    var difficulty = [10, 10, 10];
+    var initialized = false;
+    var win = false;
+    var lose = false;
+    var svg = null;
+    addEventListener("DOMContentLoaded", draw);
+    function draw() {
+        svg = d3.select("body").append("svg")
+                .attr("width", 500)
+                .attr("height", 500);
+        for(var i = 0; i<difficulty[0]; i++){
+            for(var j = 0; j<difficulty[1]; j++){
+                svg.append("rect").attr("x", i*50).attr("y", j*50).attr("width", 48).attr("height", 48).attr("id", "i_"+i+"_"+j).on("click", reveal).on("contextmenu", clickshield);
+            }
+        }
+        
+    }
+    function initializeGame(x, y) {
+        gameBoard = [];
+        for(var i = 0; i<difficulty[0]; i++){
+            var thisRow = [];
+            for(var j = 0; j<difficulty[1]; j++){
+                thisRow.push(0);
+            }
+            //console.log(thisRow);
+            gameBoard.push(thisRow);
+        }
+        //console.log(gameBoard);
+        for (var i = 0; i<difficulty[2]; i++){
+            while (true){   
+                var xBomb = Math.round(Math.random()*(difficulty[0]-1));
+                var yBomb = Math.round(Math.random()*(difficulty[1]-1));
+                if (xBomb==x && yBomb==y){
+                    continue;
+                }
+                //console.log(xBomb+" "+yBomb)
+                if (gameBoard[xBomb][yBomb]>=0){
+                    gameBoard[xBomb][yBomb] = -1;
+                    if (xBomb>0){
+                        if(yBomb>0){
+                            if (gameBoard[xBomb-1][yBomb-1]!=-1)
+                                gameBoard[xBomb-1][yBomb-1]+=1;
+                        }
+                        if (gameBoard[xBomb-1][yBomb]!=-1)
+                            gameBoard[xBomb-1][yBomb]+=1;
+                        if(yBomb<difficulty[1]-1){
+                            if (gameBoard[xBomb-1][yBomb+1]!=-1)
+                                gameBoard[xBomb-1][yBomb+1]+=1;
+                        }
+                    }
+                    if(yBomb>0){
+                        if (gameBoard[xBomb][yBomb-1]!=-1)
+                            gameBoard[xBomb][yBomb-1]+=1;
+                    }
+                    if(yBomb<difficulty[1]-1){
+                        if (gameBoard[xBomb][yBomb+1]!=-1)
+                            gameBoard[xBomb][yBomb+1]+=1;
+                    }
+                    if(xBomb<difficulty[0]-1){
+                        if(yBomb>0){
+                            if (gameBoard[xBomb+1][yBomb-1]!=-1)
+                                gameBoard[xBomb+1][yBomb-1]+=1;
+                        }
+                        if (gameBoard[xBomb+1][yBomb]!=-1)
+                            gameBoard[xBomb+1][yBomb]+=1;
+                        if(yBomb<difficulty[1]-1){
+                            if (gameBoard[xBomb+1][yBomb+1]!=-1)
+                                gameBoard[xBomb+1][yBomb+1]+=1;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        //console.log("=====")
+        //for (var i = 0; i<difficulty[0]; i++){
+        //    console.log(gameBoard[i]);
+        //}
+        //console.log("=====")
+    }
+    function clickshield(){
+        d3.event.preventDefault();
+        var thisSquare = d3.select(this);
+        if(thisSquare.attr("class")=="warn"){
+            thisSquare
+                .attr("class", "")
+                .attr("fill", "");
+        }
+        else{
+            thisSquare
+                .attr("class", "warn")
+                .transition()
+                    .attr("fill", "yellow")
+                    .duration(250);
+        }
+    }
+    function reveal() {
+        if(win||lose){
+            win = false;
+            lose = false;
+            d3.selectAll(".clicked, .warn").attr("class", "").transition().attr("fill", "").duration(250);
+            d3.selectAll(".count").remove();
+            initialized = false;
+            return;
+        }
+        var thisSquare = d3.select(this);
+        var id = thisSquare.attr("id");
+        var here = id.split("_");
+        var x = parseInt(here[1]);
+        var y = parseInt(here[2]);
+        if (!initialized){
+            initializeGame(y, x);
+            initialized = true;
+        }
+        if(thisSquare.attr("class")=="warn"){
+            thisSquare.transition()
+                .attr("fill", "")
+                .duration(100)
+                .transition()
+                .attr("fill", "yellow")
+                .duration(100);
+            return;
+        }
+        click(id);
+    }
+    function click(id){
+        var thisSquare = d3.select("#"+id);
+        if(thisSquare.attr("class")=="warn" || thisSquare.attr("class")=="clicked"){
+            return;
+        }
+        thisSquare.attr("class", "clicked");
+        var here = id.split("_");
+        var x = parseInt(here[1]);
+        var y = parseInt(here[2]);
+        if (gameBoard[y][x]==-1){
+            thisSquare.attr("fill", "red");
+            lose = true;
+            alert("you lose!");
+        }
+        else{
+            thisSquare.transition().attr("fill", "gray").duration(100);
+            drawText(x, y);
+
+            if(gameBoard[y][x]==0){
+                if(y>0){
+                    if(gameBoard[y-1][x]!=-1){
+                        click("i_"+x+"_"+Number(y-1));
+                        //d3.selectAll("#i_"+x+"_"+Number(y-1)).attr("fill", "gray");
+                        //drawText(x, y-1);
+                    }
+                    if(x>0){
+                        if(gameBoard[y-1][x-1]!=-1){
+                            click("i_"+Number(x-1)+"_"+Number(y-1));
+                            //d3.selectAll("#i_"+Number(x-1)+"_"+Number(y-1)).attr("fill", "gray");
+                            //drawText(x-1, y-1);
+                        }
+                    }
+                    if(x<difficulty[1]-1){
+                        if(gameBoard[y-1][x+1]!=-1){
+                            click("i_"+Number(x+1)+"_"+Number(y-1));
+                            //d3.selectAll("#i_"+Number(x+1)+"_"+Number(y-1)).attr("fill", "gray");
+                            //drawText(x+1, y-1);
+                        }   
+                    }
+                }
+                if(y<difficulty[0]-1){
+                    if(gameBoard[y+1][x]!=-1){
+                        click("i_"+x+"_"+Number(y+1));
+                        //d3.selectAll("#i_"+x+"_"+Number(y+1)).attr("fill", "gray");
+                        //drawText(x, y+1);
+                    }
+                    if(x>0){
+                        if(gameBoard[y+1][x-1]!=-1){
+                            click("i_"+Number(x-1)+"_"+Number(y+1));
+                            //d3.selectAll("#i_"+Number(x-1)+"_"+Number(y+1)).attr("fill", "gray");
+                            //drawText(x-1, y+1);
+                        }
+                    }
+                    if(x<difficulty[1]-1){
+                        if(gameBoard[y+1][x+1]!=-1){
+                            click("i_"+Number(x+1)+"_"+Number(y+1));
+                            //d3.selectAll("#i_"+Number(x+1)+"_"+Number(y+1)).attr("fill", "gray");
+                            //drawText(x+1, y+1);
+                        }   
+                    }   
+                }
+                if(x>0){
+                    if(gameBoard[y][x-1]!=-1){
+                        click("i_"+Number(x-1)+"_"+y);
+                        //d3.selectAll("#i_"+Number(x-1)+"_"+y).attr("fill", "gray");
+                        //drawText(x-1, y);
+                    }
+                }
+                if(x<difficulty[1]-1){
+                    if(gameBoard[y][x+1]!=-1){
+                        click("i_"+Number(x+1)+"_"+y);
+                        //d3.selectAll("#i_"+Number(x+1)+"_"+y).attr("fill", "gray");
+                        //drawText(x+1, y);
+                    }   
+                }
+            }
+        }
+        if(d3.selectAll(".clicked").size()==difficulty[0]*difficulty[1]-difficulty[2]){
+            win = true;
+            alert("You win!");
+        }
+    }
+
+    function drawText(x, y) {
+        svg.append("text").text(""+gameBoard[y][x])
+            .attr("fill", "white")
+            .attr("font-size", 25)
+            .attr("font-family", "Verdana")
+            .attr("x", 50*x+18)
+            .attr("y", 50*y+34)
+            .attr("pointer-events", "none")
+            .attr("class", "count");
+    }
+
+	</script>
+</head>
+<body>
+
+</body>
+</html>
