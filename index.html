@@ -1,16 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>FUN</title>
-	<script src="https://d3js.org/d3.v3.min.js"></script>
-	<script type="text/javascript">
+    <title>FUN</title>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript">
     var gameBoard = [];
     var difficulty = [10, 10, 10];
     var initialized = false;
     var win = false;
     var lose = false;
     var svg = null;
+    var start = 0;
+    var stopTime = false;
+    var colors = ["red", "blue", "green", "orange", "pink"];
+    var animateCounter = 0;
+
+    d3.selection.prototype.moveToFront = function() {
+        return this.each(function(){
+            this.parentNode.appendChild(this);
+        });
+    };
+    
     addEventListener("DOMContentLoaded", draw);
+
     function draw() {
         svg = d3.select("body").append("svg")
                 .attr("width", 500)
@@ -20,9 +32,26 @@
                 svg.append("rect").attr("x", i*50).attr("y", j*50).attr("width", 48).attr("height", 48).attr("id", "i_"+i+"_"+j).on("click", reveal).on("contextmenu", clickshield);
             }
         }
-        
+        //requestAnimationFrame(updateTimer);
+    }
+    function getTime(){
+        return new Date().getTime();
+    }
+    function updateTimer() {
+        if (start==0){
+            start = getTime();
+            document.getElementById("timer").innerHTML = "TIME: 0";
+        }
+        else{
+            //console.log(getTime())
+            //console.log(start);
+            document.getElementById("timer").innerHTML = "TIME: "+Number(Math.floor((getTime()-start)/1000));   
+        }
+        if(!stopTime)
+            requestAnimationFrame(updateTimer);
     }
     function initializeGame(x, y) {
+        requestAnimationFrame(updateTimer);
         gameBoard = [];
         for(var i = 0; i<difficulty[0]; i++){
             var thisRow = [];
@@ -88,6 +117,9 @@
     function clickshield(){
         d3.event.preventDefault();
         var thisSquare = d3.select(this);
+        if(thisSquare.attr("class")=="clicked"){
+            return;
+        }
         if(thisSquare.attr("class")=="warn"){
             thisSquare
                 .attr("class", "")
@@ -105,9 +137,18 @@
         if(win||lose){
             win = false;
             lose = false;
-            d3.selectAll(".clicked, .warn").attr("class", "").transition().attr("fill", "").duration(250);
+            d3.selectAll(".loss").remove();
+            d3.selectAll(".clicked, .warn")
+                .attr("class", "")
+                .on("dblclick", null)
+                .on("click", reveal)
+                .transition().attr("fill", "").duration(250);
             d3.selectAll(".count").remove();
+            document.getElementById("timer").innerHTML = "TIME: 0";
+            stopTime = false;
+            start = 0;
             initialized = false;
+            animateCounter = 0;
             return;
         }
         var thisSquare = d3.select(this);
@@ -130,7 +171,87 @@
         }
         click(id);
     }
-    function click(id){
+    function search(id){
+        console.log("searching");
+        var thisSquare = d3.select(this);
+        var id = thisSquare.attr("id");
+        console.log(id);
+        var here = id.split("_");
+        var x = parseInt(here[1]);
+        var y = parseInt(here[2]);
+        var counter = 0;
+        if(y>0){
+            if(d3.select("#i_"+x+"_"+Number(y-1)).attr("class")=="warn"){
+                counter++;
+            }
+            if(x>0){
+                if(d3.select("#i_"+Number(x-1)+"_"+Number(y-1)).attr("class")=="warn"){                    
+                    counter++;
+                }
+            }
+            if(x<difficulty[1]-1){
+                if(d3.select("#i_"+Number(x+1)+"_"+Number(y-1)).attr("class")=="warn"){                    
+                    counter++;
+                }   
+            }
+        }
+        if(y<difficulty[0]-1){
+            if(d3.select("#i_"+x+"_"+Number(y+1)).attr("class")=="warn"){                
+                counter++;
+            }
+            if(x>0){
+                if(d3.select("#i_"+Number(x-1)+"_"+Number(y+1)).attr("class")=="warn"){                    
+                    counter++;
+                }
+            }
+            if(x<difficulty[1]-1){
+                if(d3.select("#i_"+Number(x+1)+"_"+Number(y+1)).attr("class")=="warn"){                    
+                    counter++;
+                }   
+            }   
+        }
+        if(x>0){
+            if(d3.select("#i_"+Number(x-1)+"_"+y).attr("class")=="warn"){
+                counter++;
+            }
+        }
+        if(x<difficulty[1]-1){
+            if(d3.select("#i_"+Number(x+1)+"_"+y).attr("class")=="warn"){
+                counter++;
+            }   
+        }
+
+        if (counter!=gameBoard[y][x]){
+            return;
+        }
+
+        if(y>0){
+            click("i_"+x+"_"+Number(y-1));                
+            if(x>0){
+                click("i_"+Number(x-1)+"_"+Number(y-1));
+            }
+            if(x<difficulty[1]-1){
+                click("i_"+Number(x+1)+"_"+Number(y-1));   
+            }
+        }
+        if(y<difficulty[0]-1){
+            click("i_"+x+"_"+Number(y+1));
+            if(x>0){
+                click("i_"+Number(x-1)+"_"+Number(y+1));
+            }
+            if(x<difficulty[1]-1){
+                click("i_"+Number(x+1)+"_"+Number(y+1));   
+            }   
+        }
+        if(x>0){
+            click("i_"+Number(x-1)+"_"+y);
+        }
+        if(x<difficulty[1]-1){
+            click("i_"+Number(x+1)+"_"+y);   
+        }
+    }
+    function click(id, delay){
+        delay = delay || 100;
         var thisSquare = d3.select("#"+id);
         if(thisSquare.attr("class")=="warn" || thisSquare.attr("class")=="clicked"){
             return;
@@ -140,15 +261,52 @@
         var x = parseInt(here[1]);
         var y = parseInt(here[2]);
         if (gameBoard[y][x]==-1){
-            thisSquare.attr("fill", "red");
+            stopTime = true;
+            //d3.selectAll(".count").transition().attr("fill", "red");
+            thisSquare.attr("fill", "red");//.moveToFront().transition().attr("width", 500).attr("height", 500).duration(5000);
             lose = true;
+            for (var i = 0; i<difficulty[0]; i++){
+                for(var j = 0; j<difficulty[1]; j++){
+                    thisSquare = d3.select("#i_"+i+"_"+j);
+                    thisSquare.on("click", reveal).on("dblclick", null);
+                    if(thisSquare.attr("class")=="clicked"){
+                        continue;
+                    }
+                    else if(thisSquare.attr("class")=="warn"){
+                        thisSquare.attr("class", "");
+                    }
+                    if(gameBoard[j][i]==-1){
+                        thisSquare.attr("class", "clicked").transition().attr("fill", "red");
+                        svg.append("rect").attr("class", "loss")
+                            .attr("x", 50*x).attr("y", 50*y)
+                            .attr("width", 48).attr("height", 48)
+                            .attr("fill", "red")
+                            .on("click", reveal)
+                            .transition().attr("width",500).attr("height", 500).attr("x", 0).attr("y", 0).duration(5000);
+                    }
+                    else{
+                        click(thisSquare.attr("id"), 250);
+                    }
+
+                }
+            }
             alert("you lose!");
+            svg.append("rect").attr("class", "loss")
+                .attr("x", 50*x).attr("y", 50*y)
+                .attr("width", 48).attr("height", 48)
+                .attr("fill", "red")
+                .on("click", reveal)
+                .transition().attr("width",500).attr("height", 500).attr("x", 0).attr("y", 0).duration(5000);
+            d3.selectAll(".clicked").on("click", reveal).on("dblclick", null);
         }
         else{
-            thisSquare.transition().attr("fill", "gray").duration(100);
-            drawText(x, y);
+            thisSquare.transition().attr("fill", "gray").duration(delay);
+            thisSquare.on("click", null).on("dblclick", search);
+            if(gameBoard[y][x]!=0){
+                drawText(x, y);
+            }
 
-            if(gameBoard[y][x]==0){
+            else{
                 if(y>0){
                     if(gameBoard[y-1][x]!=-1){
                         click("i_"+x+"_"+Number(y-1));
@@ -207,10 +365,22 @@
                 }
             }
         }
-        if(d3.selectAll(".clicked").size()==difficulty[0]*difficulty[1]-difficulty[2]){
+        if(!lose && d3.selectAll(".clicked").size()==difficulty[0]*difficulty[1]-difficulty[2]){
             win = true;
             alert("You win!");
+            d3.selectAll(".clicked").on("click", reveal).on("dblclick", null);
+            animate();
         }
+    }
+
+    function animate(){
+        if (animateCounter%(difficulty[0]*difficulty[1]-difficulty[2])==0){
+
+        d3.selectAll(".clicked").transition().delay(function(d, i) { 
+            return i / (difficulty[0]*difficulty[1]-difficulty[2]) * 100; 
+        }).attr("fill", colors[Math.floor(Math.random()*(colors.length-1))]).duration(100).each("end", animate);
+        }
+        animateCounter++;
     }
 
     function drawText(x, y) {
@@ -227,6 +397,6 @@
 	</script>
 </head>
 <body>
-
+<p id="timer">TIME: 0</p>
 </body>
 </html>
